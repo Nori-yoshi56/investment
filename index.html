@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Investment Council — Grok × Gemini</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500;600&family=Noto+Sans+JP:wght@300;400;700&display=swap');
+
+:root {
+  --bg: #08090c;
+  --surface: #0d0f15;
+  --surface2: #111420;
+  --border: #1c2035;
+  --border2: #252a42;
+  --grok: #1da1f2;
+  --grok-dim: #0e4a72;
+  --gemini: #34a853;
+  --gemini-dim: #1a4a27;
+  --claude: #d4956a;
+  --accent: #f0c040;
+  --accent-dim: #6b5318;
+  --danger: #ef4444;
+  --text: #dde1f0;
+  --muted: #454a6a;
+  --muted2: #2a2e48;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Scanline overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Noise texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar-logo {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo-tag {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.logo-sub {
+  font-size: 9px;
+  letter-spacing: 0.35em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* AI Agent Cards */
+.agent-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-label {
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.agent-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.agent-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+
+.agent-card[data-ai="grok"]::before { background: var(--grok); }
+.agent-card[data-ai="gemini"]::before { background: var(--gemini); }
+.agent-card[data-ai="claude"]::before { background: var(--claude); opacity: 0.4; }
+
+.agent-card.active[data-ai="grok"] { background: rgba(29,161,242,0.06); border-color: var(--grok-dim); box-shadow: 0 0 16px rgba(29,161,242,0.12); }
+.agent-card.active[data-ai="gemini"] { background: rgba(52,168,83,0.06); border-color: var(--gemini-dim); box-shadow: 0 0 16px rgba(52,168,83,0.12); }
+
+.agent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.agent-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.1em;
+}
+
+.agent-card[data-ai="grok"] .agent-name { color: var(--grok); }
+.agent-card[data-ai="gemini"] .agent-name { color: var(--gemini); }
+.agent-card[data-ai="claude"] .agent-name { color: var(--claude); opacity: 0.5; }
+
+.agent-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--muted2);
+}
+
+.agent-card.active .status-dot {
+  background: var(--accent);
+  animation: blink 0.8s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.agent-role {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.agent-strengths {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.strength-tag {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+}
+
+.agent-card[data-ai="grok"] .strength-tag { border-color: var(--grok-dim); color: var(--grok); }
+.agent-card[data-ai="gemini"] .strength-tag { border-color: var(--gemini-dim); color: var(--gemini); }
+
+.coming-soon {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  text-align: center;
+  margin-top: 4px;
+  opacity: 0.5;
+}
+
+/* API Keys */
+.api-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  flex: 1;
+}
+
+.api-field {
+  margin-bottom: 12px;
+}
+
+.api-label {
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.api-label[data-ai="grok"] { color: var(--grok); }
+.api-label[data-ai="gemini"] { color: var(--gemini); }
+
+.api-input {
+  width: 100%;
+  background: #07080e;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  padding: 8px 10px;
+  transition: border-color 0.2s;
+}
+
+.api-input:focus { outline: none; border-color: var(--accent); }
+.api-input::placeholder { color: var(--muted2); }
+
+.api-hint {
+  font-size: 8px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.api-hint a { color: var(--accent); text-decoration: none; }
+
+/* ===== MAIN ===== */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-header {
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+}
+
+.main-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 0.15em;
+  color: var(--text);
+}
+
+.council-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.council-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted2);
+}
+
+.council-dot.ready { background: var(--gemini); }
+.council-dot.running { background: var(--accent); animation: blink 0.8s infinite; }
+
+/* Query Input */
+.query-section {
+  padding: 20px 28px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+
+.template-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.tpl-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tpl-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(240,192,64,0.05); }
+
+.query-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.query-wrap {
+  flex: 1;
+  position: relative;
+}
+
+.query-label {
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+textarea.query-input {
+  width: 100%;
+  background: #07080e;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  padding: 12px 14px;
+  resize: none;
+  height: 72px;
+  line-height: 1.6;
+  transition: border-color 0.2s;
+}
+
+textarea.query-input:focus { outline: none; border-color: var(--accent); }
+textarea.query-input::placeholder { color: var(--muted); }
+
+.btn-council {
+  background: var(--accent);
+  border: none;
+  color: #000;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.1em;
+  padding: 0 24px;
+  height: 72px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.btn-council:hover { background: #fff; transform: translateY(-1px); }
+.btn-council:disabled { background: var(--muted2); color: var(--muted); cursor: not-allowed; transform: none; }
+
+/* ===== FEED ===== */
+.feed {
+  flex: 1;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px;
+  opacity: 0.4;
+}
+
+.empty-icon {
+  font-size: 56px;
+  margin-bottom: 20px;
+  filter: grayscale(1);
+}
+
+.empty-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 24px;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.empty-sub {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+/* Message Cards */
+.msg-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  animation: fadeUp 0.35s ease;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.msg-card[data-ai="grok"] { border-left: 3px solid var(--grok); }
+.msg-card[data-ai="gemini"] { border-left: 3px solid var(--gemini); }
+.msg-card[data-ai="verdict"] { border-left: 3px solid var(--accent); background: #0b0d14; }
+
+.msg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.msg-agent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.msg-agent-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.1em;
+}
+
+.msg-card[data-ai="grok"] .msg-agent-name { color: var(--grok); }
+.msg-card[data-ai="gemini"] .msg-agent-name { color: var(--gemini); }
+.msg-card[data-ai="verdict"] .msg-agent-name { color: var(--accent); }
+
+.msg-badge {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  border: 1px solid;
+  padding: 2px 8px;
+  border-radius: 2px;
+}
+
+.msg-card[data-ai="grok"] .msg-badge { border-color: var(--grok-dim); color: var(--grok); }
+.msg-card[data-ai="gemini"] .msg-badge { border-color: var(--gemini-dim); color: var(--gemini); }
+.msg-card[data-ai="verdict"] .msg-badge { border-color: var(--accent-dim); color: var(--accent); }
+
+.msg-time {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.msg-body {
+  padding: 16px 18px;
+  font-size: 13px;
+  line-height: 1.85;
+  color: #c8cce0;
+  white-space: pre-wrap;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 300;
+}
+
+.msg-card[data-ai="verdict"] .msg-body {
+  font-size: 13px;
+}
+
+/* Verdict highlight sections */
+.verdict-section {
+  padding: 16px 18px;
+}
+
+.verdict-kv {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px 16px;
+  align-items: start;
+}
+
+.verdict-key {
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  color: var(--accent);
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+
+.verdict-val {
+  font-size: 13px;
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 300;
+  line-height: 1.7;
+  border-left: 1px solid var(--border2);
+  padding-left: 12px;
+}
+
+.rating-badge {
+  display: inline-block;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.1em;
+  padding: 4px 16px;
+  border-radius: 4px;
+  border: 1px solid;
+}
+
+.rating-badge.buy { color: #22c55e; border-color: #166534; background: rgba(34,197,94,0.1); }
+.rating-badge.hold { color: var(--accent); border-color: var(--accent-dim); background: rgba(240,192,64,0.1); }
+.rating-badge.sell { color: var(--danger); border-color: #7f1d1d; background: rgba(239,68,68,0.1); }
+.rating-badge.watch { color: #a78bfa; border-color: #4c1d95; background: rgba(167,139,250,0.1); }
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+/* Typing */
+.typing-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: fadeUp 0.3s ease;
+}
+
+.typing-card[data-ai="grok"] { border-left: 3px solid var(--grok); }
+.typing-card[data-ai="gemini"] { border-left: 3px solid var(--gemini); }
+.typing-card[data-ai="verdict"] { border-left: 3px solid var(--accent); }
+
+.typing-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+}
+
+.typing-card[data-ai="grok"] .typing-name { color: var(--grok); }
+.typing-card[data-ai="gemini"] .typing-name { color: var(--gemini); }
+.typing-card[data-ai="verdict"] .typing-name { color: var(--accent); }
+
+.typing-label { font-size: 10px; color: var(--muted); flex: 1; }
+
+.dots { display: flex; gap: 4px; }
+.dots span {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: bounce 1.2s infinite;
+}
+.dots span:nth-child(2) { animation-delay: 0.2s; }
+.dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+
+/* Error */
+.error-card {
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 8px;
+  padding: 16px 18px;
+  font-size: 12px;
+  color: #fca5a5;
+  animation: fadeUp 0.3s ease;
+}
+
+.error-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  color: var(--danger);
+  margin-bottom: 6px;
+}
+
+/* Progress */
+.progress-bar {
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+  margin: 0 28px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 1px;
+  transition: width 0.5s ease;
+  width: 0%;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-tag">AI Council</div>
+      <div class="logo-sub">Investment Intelligence System</div>
+    </div>
+
+    <!-- Agent Cards -->
+    <div class="agent-section">
+      <div class="section-label">▸ Active Agents</div>
+
+      <div class="agent-card" data-ai="grok" id="card-grok">
+        <div class="agent-header">
+          <div class="agent-name">Grok</div>
+          <div class="agent-status">
+            <div class="status-dot" id="dot-grok"></div>
+            <span id="status-grok">待機中</span>
+          </div>
+        </div>
+        <div class="agent-role">リアルタイム情報収集官<br>X/株価/ニュース・テクニカル</div>
+        <div class="agent-strengths">
+          <span class="strength-tag">REALTIME</span>
+          <span class="strength-tag">X SENTIMENT</span>
+          <span class="strength-tag">STOCK DATA</span>
+          <span class="strength-tag">NEWS</span>
+        </div>
+      </div>
+
+      <div class="agent-card" data-ai="gemini" id="card-gemini">
+        <div class="agent-header">
+          <div class="agent-name">Gemini</div>
+          <div class="agent-status">
+            <div class="status-dot" id="dot-gemini"></div>
+            <span id="status-gemini">待機中</span>
+          </div>
+        </div>
+        <div class="agent-role">ファンダメンタル統合分析官<br>財務・長文推論・最終判断</div>
+        <div class="agent-strengths">
+          <span class="strength-tag">FUNDAMENTAL</span>
+          <span class="strength-tag">LONG CONTEXT</span>
+          <span class="strength-tag">SYNTHESIS</span>
+        </div>
+      </div>
+
+      <div class="section-label" style="margin-top:12px">▸ Coming Soon</div>
+      <div class="agent-card" data-ai="claude" style="opacity:0.4">
+        <div class="agent-header">
+          <div class="agent-name">Claude</div>
+          <div class="agent-status">
+            <div class="status-dot"></div>
+            <span style="font-size:9px;color:var(--muted)">未接続</span>
+          </div>
+        </div>
+        <div class="agent-role">リスク管理・シナリオ分析官</div>
+        <div class="coming-soon">[ API KEY REQUIRED ]</div>
+      </div>
+    </div>
+
+    <!-- API Keys -->
+    <div class="api-section">
+      <div class="section-label">▸ API Keys</div>
+
+      <div class="api-field">
+        <div class="api-label" data-ai="grok">▸ xAI / Grok API Key</div>
+        <input type="password" class="api-input" id="grokKey" placeholder="xai-...">
+        <div class="api-hint">
+          <a href="https://console.x.ai" target="_blank">console.x.ai</a> で取得 — $25/月 無料
+        </div>
+      </div>
+
+      <div class="api-field">
+        <div class="api-label" data-ai="gemini">▸ Google / Gemini API Key</div>
+        <input type="password" class="api-input" id="geminiKey" placeholder="AIza...">
+        <div class="api-hint">
+          <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a> で取得 — 無料枠あり
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="main-header">
+      <div class="main-title">Investment Conference Room</div>
+      <div class="council-status">
+        <div class="council-dot" id="council-dot"></div>
+        <span id="council-status-text">APIキーを入力して開始</span>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress"></div>
+    </div>
+
+    <!-- Query Input -->
+    <div class="query-section">
+      <div class="template-row">
+        <button class="tpl-btn" onclick="tpl('Appleの株式(AAPL)について現在の投資判断を議論してください。最新の株価動向と財務分析の両面から。')">🍎 AAPL</button>
+        <button class="tpl-btn" onclick="tpl('エヌビディア(NVDA)の直近の株価動向と今後12ヶ月の見通しを分析してください。')">🔥 NVDA</button>
+        <button class="tpl-btn" onclick="tpl('テスラ(TSLA)の現状分析。最近のニュース・SNSセンチメントとファンダメンタルの乖離はあるか？')">⚡ TSLA</button>
+        <button class="tpl-btn" onclick="tpl('2025年の半導体セクターで注目すべき投資銘柄を3つスクリーニングして分析してください。')">💻 半導体</button>
+        <button class="tpl-btn" onclick="tpl('ビットコインと暗号資産市場の現在の動向と、機関投資家の動きについて分析してください。')">₿ 暗号資産</button>
+        <button class="tpl-btn" onclick="tpl('日本株市場の現状と、円安・金利環境を考慮した上で注目セクター・銘柄を議論してください。')">🇯🇵 日本株</button>
+      </div>
+
+      <div class="query-row">
+        <div class="query-wrap">
+          <div class="query-label">▸ 投資分析クエリ</div>
+          <textarea class="query-input" id="queryInput" placeholder="分析したい銘柄・テーマを入力してください..."></textarea>
+        </div>
+        <button class="btn-council" id="startBtn" onclick="startCouncil()">COUNCIL<br>START</button>
+      </div>
+    </div>
+
+    <!-- Feed -->
+    <div class="feed" id="feed">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🏛️</div>
+        <div class="empty-title">Council Standby</div>
+        <div class="empty-sub">
+          Grok: リアルタイム株価・X(Twitter)センチメント・最新ニュース収集<br>
+          Gemini: 財務分析・長文推論・統合的ファンダメンタル判断<br><br>
+          APIキーを入力し、分析したい銘柄・テーマを入力してください
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+function tpl(text) {
+  document.getElementById('queryInput').value = text;
+}
+
+function setProgress(pct) {
+  document.getElementById('progress').style.width = pct + '%';
+}
+
+function setCouncilStatus(text, state) {
+  document.getElementById('council-status-text').textContent = text;
+  const dot = document.getElementById('council-dot');
+  dot.className = 'council-dot';
+  if (state) dot.classList.add(state);
+}
+
+function setAgent(ai, active, statusText) {
+  const card = document.getElementById(`card-${ai}`);
+  const dot = document.getElementById(`dot-${ai}`);
+  const st = document.getElementById(`status-${ai}`);
+  if (active) card.classList.add('active'); else card.classList.remove('active');
+  if (statusText) st.textContent = statusText;
+}
+
+function addTyping(ai, label) {
+  const feed = document.getElementById('feed');
+  const div = document.createElement('div');
+  div.className = 'typing-card';
+  div.dataset.ai = ai;
+  div.id = `typing-${ai}`;
+  div.innerHTML = `
+    <div class="typing-name">${ai === 'grok' ? 'Grok' : ai === 'gemini' ? 'Gemini' : 'Council'}</div>
+    <div class="typing-label">${label}</div>
+    <div class="dots"><span></span><span></span><span></span></div>
+  `;
+  feed.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function removeTyping(ai) {
+  const el = document.getElementById(`typing-${ai}`);
+  if (el) el.remove();
+}
+
+function now() {
+  return new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function addMessage(ai, badge, content) {
+  const feed = document.getElementById('feed');
+  const names = { grok: 'Grok', gemini: 'Gemini', verdict: 'Council Verdict' };
+  const card = document.createElement('div');
+  card.className = 'msg-card';
+  card.dataset.ai = ai;
+  card.innerHTML = `
+    <div class="msg-head">
+      <div class="msg-agent">
+        <div class="msg-agent-name">${names[ai] || ai}</div>
+        <div class="msg-badge">${badge}</div>
+      </div>
+      <div class="msg-time">${now()}</div>
+    </div>
+    <div class="msg-body">${content}</div>
+  `;
+  feed.appendChild(card);
+  card.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  return card;
+}
+
+function addVerdictCard(verdictText) {
+  const feed = document.getElementById('feed');
+
+  // Parse structured verdict
+  const lines = verdictText.split('\n');
+  let rating = 'hold', ratingText = '中立', sections = {};
+  let currentKey = null, currentLines = [];
+
+  const keyMap = {
+    '総合評価': 'rating',
+    'コンセンサス': 'consensus',
+    '注目ポイント': 'points',
+    '投資判断': 'judgment',
+    'リスク警告': 'risk'
+  };
+
+  lines.forEach(line => {
+    const stripped = line.replace(/^【|】.*$/g, '').trim();
+    const bracketMatch = line.match(/【(.+?)】(.*)/)
+    if (bracketMatch) {
+      if (currentKey) sections[currentKey] = currentLines.join('\n').trim();
+      currentKey = keyMap[bracketMatch[1]] || bracketMatch[1];
+      currentLines = [bracketMatch[2].trim()];
+    } else if (currentKey) {
+      currentLines.push(line);
+    }
+  });
+  if (currentKey) sections[currentKey] = currentLines.join('\n').trim();
+
+  // Rating detection
+  const ratingRaw = (sections.rating || verdictText).toLowerCase();
+  if (ratingRaw.includes('買い') || ratingRaw.includes('強気')) { rating = 'buy'; ratingText = sections.rating?.replace(/.*?(買い|強気).*/, '$1') || '買い'; }
+  else if (ratingRaw.includes('売り') || ratingRaw.includes('弱気')) { rating = 'sell'; ratingText = sections.rating?.replace(/.*?(売り|弱気).*/, '$1') || '売り'; }
+  else if (ratingRaw.includes('要観察') || ratingRaw.includes('watch')) { rating = 'watch'; ratingText = '要観察'; }
+  else { ratingText = sections.rating || '中立'; }
+
+  const card = document.createElement('div');
+  card.className = 'msg-card';
+  card.dataset.ai = 'verdict';
+  card.style.animation = 'fadeUp 0.4s ease';
+  card.innerHTML = `
+    <div class="msg-head">
+      <div class="msg-agent">
+        <div class="msg-agent-name">Council Verdict</div>
+        <div class="msg-badge">FINAL JUDGMENT</div>
+      </div>
+      <div class="msg-time">${now()}</div>
+    </div>
+    <hr class="divider">
+    <div class="verdict-section">
+      <div class="verdict-kv">
+        <div class="verdict-key">総合評価</div>
+        <div class="verdict-val"><span class="rating-badge ${rating}">${ratingText}</span></div>
+
+        ${sections.consensus ? `
+        <div class="verdict-key">コンセンサス</div>
+        <div class="verdict-val">${sections.consensus}</div>
+        ` : ''}
+
+        ${sections.points ? `
+        <div class="verdict-key">注目ポイント</div>
+        <div class="verdict-val">${sections.points}</div>
+        ` : ''}
+
+        ${sections.judgment ? `
+        <div class="verdict-key">投資判断</div>
+        <div class="verdict-val">${sections.judgment}</div>
+        ` : ''}
+
+        ${sections.risk ? `
+        <div class="verdict-key">リスク警告</div>
+        <div class="verdict-val" style="color:#fca5a5">${sections.risk}</div>
+        ` : ''}
+
+        ${!sections.consensus ? `
+        <div class="verdict-key" style="grid-column:1/-1"></div>
+        <div class="verdict-val" style="grid-column:1/-1">${verdictText}</div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+  feed.appendChild(card);
+  card.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function addError(title, message) {
+  const feed = document.getElementById('feed');
+  const div = document.createElement('div');
+  div.className = 'error-card';
+  div.innerHTML = `<div class="error-title">⚠ ${title}</div><div>${message}</div>`;
+  feed.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+// ===== API CALLS =====
+
+async function callGrok(apiKey, systemPrompt, userMessage) {
+  const response = await fetch('https://api.x.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'grok-3-mini',  // 無料枠対応モデル
+      max_tokens: 1000,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(`Grok API Error: ${err.error?.message || response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
+
+async function callGemini(apiKey, systemPrompt, userMessage) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+      generationConfig: { maxOutputTokens: 1000, temperature: 0.7 }
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(`Gemini API Error: ${err.error?.message || response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.candidates[0].content.parts[0].text;
+}
+
+// ===== MAIN FLOW =====
+
+async function startCouncil() {
+  const grokKey = document.getElementById('grokKey').value.trim();
+  const geminiKey = document.getElementById('geminiKey').value.trim();
+  const query = document.getElementById('queryInput').value.trim();
+
+  if (!grokKey) { alert('Grok APIキーを入力してください'); return; }
+  if (!geminiKey) { alert('Gemini APIキーを入力してください'); return; }
+  if (!query) { alert('分析クエリを入力してください'); return; }
+
+  const btn = document.getElementById('startBtn');
+  btn.disabled = true;
+
+  // Clear feed
+  const feed = document.getElementById('feed');
+  feed.innerHTML = '';
+
+  setCouncilStatus('会議進行中...', 'running');
+  setProgress(5);
+
+  // === GROK SYSTEM PROMPT ===
+  const grokSystem = `あなたはxAIのAI「Grok」として投資会議に参加する、リアルタイム情報のエキスパートです。
+
+【あなたの強み・役割】
+- X(Twitter/旧Twitter)のリアルタイムセンチメント分析
+- 最新の株価動向・出来高・価格アクションの把握
+- 直近のニュースヘッドライン・企業プレスリリース
+- 機関投資家・ヘッジファンドの動向
+- テクニカル指標の現状（トレンド・モメンタム）
+- SNS上の投資家心理・バズワード
+
+【注意点】
+- あなたのリアルタイムデータにアクセスして答えてください
+- 財務の深い分析はGeminiが担当するので、あなたは「今何が起きているか」に集中する
+- 日本語で回答（250〜400字程度）
+- 自己紹介不要、分析を直接述べる`;
+
+  // === GEMINI SYSTEM PROMPT ===
+  const geminiSystem = `あなたはGoogleのAI「Gemini」として投資会議に参加する、ファンダメンタル統合分析のエキスパートです。
+
+【あなたの強み・役割】
+- 財務指標の深掘り（PER, PBR, ROE, EPS成長率, フリーキャッシュフロー）
+- 企業のビジネスモデル・競争優位性（ワイドモート）の評価
+- セクター・マクロ経済環境との関連性
+- 決算書・IRレポートの分析
+- バリュエーション評価（適正株価の試算）
+- Grokが提示したリアルタイム情報を踏まえた統合判断と最終投資判断
+
+【注意点】
+- 長期・中期的視点を重視する
+- Grokの分析を必ず参照して統合的に分析する
+- 日本語で回答（300〜450字程度）
+- 自己紹介不要、分析を直接述べる`;
+
+  // === VERDICT SYSTEM PROMPT ===
+  const verdictSystem = `あなたは投資AIコンシェルジュです。2つのAIの議論から最終判断サマリーを作成します。
+
+以下の厳密なフォーマットで出力してください（他の文言不要）：
+
+【総合評価】買い / 中立 / 売り / 要観察 のいずれか一語
+【コンセンサス】2つのAIの共通見解を2〜3文で
+【注目ポイント】
+・最重要ポイント1
+・最重要ポイント2
+・最重要ポイント3
+【投資判断】短期（1〜3ヶ月）・中期（6〜12ヶ月）・長期（1年以上）それぞれ1文
+【リスク警告】最大のリスク要因を1文`;
+
+  try {
+    // === STEP 1: GROK ===
+    setAgent('grok', true, '分析中...');
+    addTyping('grok', 'リアルタイム情報収集・テクニカル分析中...');
+    setProgress(20);
+
+    const grokResponse = await callGrok(
+      grokKey,
+      grokSystem,
+      `投資会議の質問: ${query}\n\nリアルタイム情報・テクニカル・センチメントの観点から分析してください。`
+    );
+
+    removeTyping('grok');
+    setAgent('grok', false, '完了');
+    addMessage('grok', 'REALTIME · TECHNICAL', grokResponse);
+    setProgress(45);
+
+    // === STEP 2: GEMINI ===
+    setAgent('gemini', true, '分析中...');
+    addTyping('gemini', 'ファンダメンタル分析・統合判断中...');
+
+    const geminiResponse = await callGemini(
+      geminiKey,
+      geminiSystem,
+      `投資会議の質問: ${query}
+
+【Grokのリアルタイム分析】
+${grokResponse}
+
+上記のGrokの分析を参考にしながら、ファンダメンタル分析と統合的な視点で分析してください。`
+    );
+
+    removeTyping('gemini');
+    setAgent('gemini', false, '完了');
+    addMessage('gemini', 'FUNDAMENTAL · SYNTHESIS', geminiResponse);
+    setProgress(75);
+
+    // === STEP 3: VERDICT ===
+    addTyping('verdict', '最終投資判断を生成中...');
+
+    const verdictResponse = await callGemini(
+      geminiKey,
+      verdictSystem,
+      `質問: ${query}
+
+【Grok分析（リアルタイム・テクニカル）】
+${grokResponse}
+
+【Gemini分析（ファンダメンタル・統合）】
+${geminiResponse}
+
+上記2つの分析から最終投資判断サマリーを指定フォーマットで作成してください。`
+    );
+
+    removeTyping('verdict');
+    addVerdictCard(verdictResponse);
+    setProgress(100);
+    setCouncilStatus('会議完了', 'ready');
+
+  } catch (err) {
+    removeTyping('grok');
+    removeTyping('gemini');
+    removeTyping('verdict');
+    setAgent('grok', false, '待機中');
+    setAgent('gemini', false, '待機中');
+    setProgress(0);
+    setCouncilStatus('エラー発生', '');
+
+    // Better error messages
+    let msg = err.message;
+    if (msg.includes('401') || msg.includes('403')) msg += ' — APIキーを確認してください';
+    if (msg.includes('429')) msg += ' — レート制限中です。少し待ってから再試行してください';
+    if (msg.includes('Failed to fetch') || msg.includes('CORS')) {
+      msg = 'APIへの接続に失敗しました。ブラウザのCORSポリシーによりAPI直接呼び出しがブロックされている可能性があります。このHTMLをローカルサーバー経由で実行するか、プロキシサーバーが必要な場合があります。';
+    }
+
+    addError('API接続エラー', msg);
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
